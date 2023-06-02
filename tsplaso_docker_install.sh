@@ -1,38 +1,57 @@
 #!/bin/bash
 # Description: This helper script will bring up Timesketch, Kibana (separate) and Plaso dockerised versions for rapid deployment. Further, it will set up InsaneTechnologies elastic pipelines so that relevant embedded fields can be extracted and mapped to fields in ES.
-# Tested on Ubuntu 20.04 LTS Server Edition
+# Tested on Ubuntu 22.04 LTS Server Edition
 # Created by Janantha Marasinghe
+# Modified by Matthew Turner : small personal preferences
 #
-# Usage: sudo  echo -ne '\n' | ./tsplaso_docker_install.sh 
+# Usage: sudo ./tsplaso_docker_install.sh
 #
 # Update APT database
+
 sudo apt-get update
 
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-echo \
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+sudo echo \
 "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
 $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 
 # Install all pre-required Linux packages
-apt-get update
-apt-get install apt-transport-https ca-certificates curl gnupg lsb-release unzip unrar docker-ce docker-ce-cli containerd.io python3-pip docker-compose -y
+sudo apt-get update
+sudo apt-get install apt-transport-https ca-certificates curl gnupg lsb-release unzip unrar docker-ce docker-ce-cli containerd.io python3-pip docker-compose -y
 
 #Setting default user creds
-USER1_NAME=jdoe
+USER1_NAME=analyst
 USER1_PASSWORD=$(openssl rand -base64 12)
 
+# Domain Name - change this / Used for certbot registration of active TLD [case sensitive]
+DOMAIN_NAME=yourdomain.TLD
+
+# change directory to where we will install timesketch
 cd /opt
 
 # Download and install Timesketch
-curl -s -O https://raw.githubusercontent.com/google/timesketch/master/contrib/deploy_timesketch.sh
-chmod 755 deploy_timesketch.sh
-./deploy_timesketch.sh
+sudo curl -s -O https://raw.githubusercontent.com/google/timesketch/master/contrib/deploy_timesketch.sh
+sudo chmod 755 deploy_timesketch.sh
+## if /opt/timesketch already exists, this will fail
+
+if [ -d "/opt/timesketch" ]; then
+    read -p "/opt/timesketch already exists. Do you want to delete it? (y/n) " answer
+    if [ "$answer" != "y" ] && [ "$answer" != "Y" ]; then
+        echo "Exiting installation."
+        exit 1
+    fi
+    sudo rm -rf /opt/timesketch
+fi
+
+sudo ./deploy_timesketch.sh
 cd /opt/timesketch
+
  
 # Download docker version of plaso
-docker pull log2timeline/plaso
- 
+sudo docker pull log2timeline/plaso
+
+# Native Install Commented Out
 #add-apt-repository ppa:gift/stable -y
 #apt-get update
 #apt-get install plaso-tools -y
@@ -41,30 +60,50 @@ docker pull log2timeline/plaso
 pip3 install timesketch-import-client
 
 # Download the latest tags file from blueteam0ps repo
-wget -Nq https://raw.githubusercontent.com/blueteam0ps/AllthingsTimesketch/master/tags.yaml -O /opt/timesketch/etc/timesketch/tags.yaml
+sudo wget -Nq https://raw.githubusercontent.com/MattETurner/AllthingsTimesketch/master/tags.yaml -O /opt/timesketch/etc/timesketch/tags.yaml
 
 #Increase the CSRF token time limit
-echo -e '\nWTF_CSRF_TIME_LIMIT = 3600' >> /opt/timesketch/etc/timesketch/timesketch.conf
+sudo echo -e '\nWTF_CSRF_TIME_LIMIT = 3600' >> /opt/timesketch/etc/timesketch/timesketch.conf
 
 sudo docker-compose up -d
 
 # Create directories to hold the self-signed cert and the key 
 sudo mkdir -p /opt/timesketch/ssl/certs
 sudo mkdir -p /opt/timesketch/ssl/private
- 
-# Generate a local self-signed certificate for HTTPS operations
-openssl req -x509 -out /opt/timesketch/ssl/certs/localhost.crt -keyout /opt/timesketch/ssl/private/localhost.key -newkey rsa:2048 -nodes -sha256 -subj '/CN=localhost' -extensions EXT -config <( printf "[dn]\nCN=localhost\n[req]\ndistinguished_name = dn\n[EXT]\nsubjectAltName=DNS:localhost\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth")
-  
+
+sudo chmod 722 /opt/timesketch/ssl/certs
+sudo chmod 722 /opt/timesketch/ssl/private
+
+# Ask user if this will be a self-signed cert installation
+read -p "Will this be a self-signed cert installation? (y/n) " answer
+
+if [ "$answer" == "y" ] || [ "$answer" == "Y" ]; then
+    # Generate a local self-signed certificate for HTTPS operations
+    openssl req -x509 -out /opt/timesketch/ssl/certs/fullchain.pem -keyout /opt/timesketch/ssl/private/privkey.pem -newkey rsa:2048 -nodes -sha256 -subj '/CN=localhost' -extensions EXT -config <( printf "[dn]\nCN=localhost\n[req]\ndistinguished_name = dn\n[EXT]\nsubjectAltName=DNS:localhost\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth")
+else
+    # Check if certbot is installed and a certificate exists
+    if [ -x "$(command -v certbot)" ] && [ -f "/etc/letsencrypt/live/$DOMAIN_NAME/fullchain.pem" ] && [ -f "/etc/letsencrypt/live/$DOMAIN_NAME/privkey.pem" ]; then
+        # Copy the cert and key to the appropriate directories
+        sudo cp /etc/letsencrypt/live/$DOMAIN_NAME/fullchain.pem /opt/timesketch/ssl/certs/
+        sudo cp /etc/letsencrypt/live/$DOMAIN_NAME/privkey.pem /opt/timesketch/ssl/private/
+    else
+        echo "Certbot is not installed or a certificate does not exist. Please install and configure certbot before continuing."
+        exit 1
+    fi
+fi
+
+sudo chmod 700 /opt/timesketch/ssl/certs
+sudo chmod 700 /opt/timesketch/ssl/private
 #Restrict private key permissions
-chmod 600 /opt/timesketch/ssl/private/localhost.key
+sudo chmod 600 /opt/timesketch/ssl/private/privkey.pem
 
 # Download the custom nginx configuration
 # Nginx modified to add the self-signed cert configuration
-wget -Nq https://raw.githubusercontent.com/blueteam0ps/AllthingsTimesketch/master/nginx.conf -O /opt/timesketch/etc/nginx.conf
+sudo wget -Nq https://raw.githubusercontent.com/MattETurner/AllthingsTimesketch/master/nginx.conf -O /opt/timesketch/etc/nginx.conf
 
 # Download the custom docker-compose configuration
 # docker-compose modified to add the volume containing ssl cert and key for nginx
-wget -Nq https://raw.githubusercontent.com/blueteam0ps/AllthingsTimesketch/master/docker-compose.yml -O /opt/timesketch/docker-compose.yml
+sudo wget -Nq https://raw.githubusercontent.com/MattETurner/AllthingsTimesketch/master/docker-compose.yml -O /opt/timesketch/docker-compose.yml
 
 # Start all docker containers to make the changes effective
 sudo docker-compose down
@@ -77,8 +116,9 @@ sleep 15
 sudo docker-compose exec timesketch-web tsctl create-user $USER1_NAME --password $USER1_PASSWORD
 
 echo -e "************************************************\n"
-printf "Timesketch User Details\n"
-echo -e "************************************************\n"
+printf "Timesketch User Details: \n"
+echo -e "\n"
 printf "User name is $USER1_NAME and the password is $USER1_PASSWORD\n"
+echo -e "\n"
 echo -e "************************************************\n"
 echo -e "************************************************\n"
