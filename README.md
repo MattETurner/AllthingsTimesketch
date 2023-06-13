@@ -18,7 +18,7 @@ This section provides a brief overview of the automation setup and how component
 
 #### Node-RED Workflow to handle triage archive processing
 Node-RED is a browser based flow editor which provides an easier way to achieve automation. 
-[NR_DFIR](https://raw.githubusercontent.com/blueteam0ps/AllthingsTimesketch/master/NR_DFIRFlow.json) is an automation workflow where the flow will watch for archive files created at /cases/processor directory. When new triage archive files get created (Tested with CyLR and KAPE zips) it will run an integrity check and decompress them to unique folders, parses it with Log2timeline and ingests into Timesketch. It has the ability to queue up archive files for processing. This way you have the option to control how many archive files gets processed at any given point in time. 
+[NR_DFIR](https://raw.githubusercontent.com/MattETurner/AllthingsTimesketch/master/NR_DFIRFlow.json) is an automation workflow where the flow will watch for archive files created at /cases/processor directory. When new triage archive files get created (Tested with CyLR and KAPE zips) it will run an integrity check and decompress them to unique folders, parses it with Log2timeline and ingests into Timesketch. It has the ability to queue up archive files for processing. This way you have the option to control how many archive files gets processed at any given point in time. 
 
 The Node-RED workflow contains 5 flows
 1. #### Triage Artefact Processor
