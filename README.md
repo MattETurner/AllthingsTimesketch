@@ -82,7 +82,7 @@ The account you are running Node-RED must have read and write permissions on /ca
 
 ## How to setup the workflow?
 1. Download the workflow JSON and Import it using the Node-RED GUI.
-https://github.com/blueteam0ps/AllthingsTimesketch/blob/master/NR_DFIRFlow.json
+https://github.com/MattETurner/AllthingsTimesketch/blob/master/NR_DFIRFlow.json
 
 2. Update the "Timesketch CLI Params" with you Timesketch credentials
 3. Update the "Queue Zips" with the amount of archives you would like to process at any given time
