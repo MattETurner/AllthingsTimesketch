@@ -2,30 +2,32 @@
 # Description: This helper script will bring up Timesketch, Kibana (separate) and Plaso dockerised versions for rapid deployment. Further, it will set up InsaneTechnologies elastic pipelines so that relevant embedded fields can be extracted and mapped to fields in ES.
 # Tested on Ubuntu 22.04 LTS Server Edition
 # Created by Janantha Marasinghe
-# Modified by Matthew Turner : small personal preferences
+# Modified by Matthew Turner, 20230615
 #
 # Usage: sudo ./tsplaso_docker_install.sh
 #
-# Update APT database
-
-sudo apt-get update
-
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-sudo echo \
-"deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-$(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-
-# Install all pre-required Linux packages
-sudo apt-get update
-sudo apt-get install apt-transport-https ca-certificates curl gnupg lsb-release unzip unrar docker-ce docker-ce-cli containerd.io python3-pip docker-compose -y
-
+# CONSTANTS
+# ---------------------------------------
 #Setting default user creds
 USER1_NAME=analyst
 USER1_PASSWORD=$(openssl rand -base64 12)
 
 # Domain Name - change this / Used for certbot registration of active TLD [case sensitive]
 DOMAIN_NAME=yourdomain.TLD
+
+# DATA DIRS
+CASES_DIR="/cases"
+DATA_DIR="/data"
+
+# ---------------------------------------
+
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+sudo echo \
+"deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+$(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+# Install all pre-required Linux packages
+sudo apt-get update
+sudo apt-get install apt-transport-https ca-certificates curl gnupg lsb-release unzip unrar docker-ce docker-ce-cli containerd.io python3-pip docker-compose -y
 
 # change directory to where we will install timesketch
 cd /opt
@@ -51,6 +53,30 @@ cd /opt/timesketch
 # Download docker version of plaso
 sudo docker pull log2timeline/plaso
 
+# Prep directories 
+if [ -d "$CASES_DIR" ]; then
+    read -p "$CASES_DIR already exists. Do you want to delete it? (y/n) " answer
+    if [ "$answer" != "y" ] && [ "$answer" != "Y" ]; then
+        echo "Exiting installation."
+        exit 1
+    fi
+    sudo rm -rf $CASES_DIR
+fi
+
+if [ -d "$DATA_DIR" ]; then
+    read -p "$DATA_DIR already exists. Do you want to delete it? (y/n) " answer
+    if [ "$answer" != "y" ] && [ "$answer" != "Y" ]; then
+        echo "Exiting installation."
+        exit 1
+    fi
+    sudo rm -rf $DATA_DIR
+fi
+
+sudo mkdir $CASES_DIR
+sudo mkdir $DATA_DIR
+sudo chmod -R 777 $CASES_DIR
+sudo chmod -R 777 $DATA_DIR
+
 # Native Install Commented Out
 #add-apt-repository ppa:gift/stable -y
 #apt-get update
@@ -59,11 +85,12 @@ sudo docker pull log2timeline/plaso
 # Install Timesketch import client to assist with larger plaso uploads
 pip3 install timesketch-import-client
 
-# Download the latest tags file from blueteam0ps repo
+# Download the latest tags file from MattETurner forked repo
 sudo wget -Nq https://raw.githubusercontent.com/MattETurner/AllthingsTimesketch/master/tags.yaml -O /opt/timesketch/etc/timesketch/tags.yaml
 
 #Increase the CSRF token time limit
-sudo echo -e '\nWTF_CSRF_TIME_LIMIT = 3600' >> /opt/timesketch/etc/timesketch/timesketch.conf
+# OLD --> sudo echo -e '\nWTF_CSRF_TIME_LIMIT = 3600' >> /opt/timesketch/etc/timesketch/timesketch.conf
+sudo sh -c "echo -e '\nWTF_CSRF_TIME_LIMIT = 3600' >> /opt/timesketch/etc/timesketch/timesketch.conf"
 
 sudo docker-compose up -d
 
@@ -104,6 +131,9 @@ sudo wget -Nq https://raw.githubusercontent.com/MattETurner/AllthingsTimesketch/
 # Download the custom docker-compose configuration
 # docker-compose modified to add the volume containing ssl cert and key for nginx
 sudo wget -Nq https://raw.githubusercontent.com/MattETurner/AllthingsTimesketch/master/docker-compose.yml -O /opt/timesketch/docker-compose.yml
+
+# Download the loop.sh file for the plaso container
+sudo wget -Nq https://raw.githubusercontent.com/MattETurner/AllthingsTimesketch/master/loop.sh -O /opt/timesketch/loop.sh
 
 # Start all docker containers to make the changes effective
 sudo docker-compose down
