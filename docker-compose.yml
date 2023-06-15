@@ -84,3 +84,11 @@ services:
     volumes:
       - ${NGINX_CONFIG_PATH}:/etc/nginx/nginx.conf
       - /opt/timesketch/ssl:/tssl
+  plaso:
+    image: log2timeline/plaso
+    container_name: c_log2timeline
+    volumes:
+      - /cases:/cases
+      - /data:/data
+      - ./loop.sh:/loop.sh
+    entrypoint: ["/bin/bash", "/loop.sh"]
