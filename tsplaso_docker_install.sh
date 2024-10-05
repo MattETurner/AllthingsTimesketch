@@ -27,7 +27,7 @@ sudo echo \
 $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 # Install all pre-required Linux packages
 sudo apt-get update
-sudo apt-get install apt-transport-https ca-certificates curl gnupg lsb-release unzip unrar docker-ce docker-ce-cli containerd.io python3-pip docker-compose -y
+sudo apt-get install curl apt-transport-https ca-certificates curl gnupg lsb-release unzip unrar docker-ce docker-ce-cli containerd.io python3-pip docker-compose -y
 
 # change directory to where we will install timesketch
 cd /opt
