@@ -90,7 +90,7 @@ sudo wget -Nq https://raw.githubusercontent.com/MattETurner/AllthingsTimesketch/
 
 #Increase the CSRF token time limit
 # OLD --> sudo echo -e '\nWTF_CSRF_TIME_LIMIT = 3600' >> /opt/timesketch/etc/timesketch/timesketch.conf
-sudo sh -c "echo -e '\nWTF_CSRF_TIME_LIMIT = 3600' >> /opt/timesketch/etc/timesketch/timesketch.conf"
+sudo sh -c "echo '\nWTF_CSRF_TIME_LIMIT = 3600' >> /opt/timesketch/etc/timesketch/timesketch.conf"
 
 sudo docker-compose up -d
 
