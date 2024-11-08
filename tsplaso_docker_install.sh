@@ -2,7 +2,7 @@
 # Description: This helper script will bring up Timesketch, Kibana (separate) and Plaso dockerised versions for rapid deployment. Further, it will set up InsaneTechnologies elastic pipelines so that relevant embedded fields can be extracted and mapped to fields in ES.
 # Tested on Ubuntu 22.04 LTS Server Edition
 # Created by Janantha Marasinghe
-# Modified by Matthew Turner, 20230615
+# Modified by Matthew Turner, 20241108
 #
 # Usage: sudo ./tsplaso_docker_install.sh
 #
